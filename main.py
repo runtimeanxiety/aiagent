@@ -49,23 +49,51 @@ messages = [
     types.Content(role="user", parts=[types.Part(text=user_prompt)]),
 ]
 
-response = client.models.generate_content(
-    model="gemini-2.0-flash-001",
-    contents=messages,
-    config=types.GenerateContentConfig(
-        tools=[available_functions], system_instruction=system_prompt
-    ),
-)
+MAX_ITERATION = 20
 
-print(f"User prompt: {user_prompt}")
-if response.function_calls:
-    for fc in response.function_calls:
-        fc_result = call_function(fc, verbose)
+for iteration in range(MAX_ITERATION):
+    try:
+        response = client.models.generate_content(
+            model="gemini-2.0-flash-001",
+            contents=messages,
+            config=types.GenerateContentConfig(
+                tools=[available_functions], system_instruction=system_prompt
+            ),
+        )
+    except Exception as e:
+        print(f"Error during generate_content (iteration {iteration+1}): {e}")
 
-        if not fc_result.parts or not fc_result.parts[0].function_response:
-            raise Exception("empty function call result")
+    for candidate in response.candidates:
+        messages.append(candidate.content)
 
-        if verbose:
-            print(f"-> {fc_result.parts[0].function_response.response}")
+    if response.function_calls:
+        for fc in response.function_calls:
+            try:
+                fc_result = call_function(fc, verbose)
+            except Exception as e:
+                print(f"Error during function call (iteration {iteration+1}): {e}")
+                continue
+
+            if not fc_result.parts or not fc_result.parts[0].function_response:
+                print("empty function call result")
+                continue
+
+            if verbose:
+                print(f"-> {fc_result.parts[0].function_response.response}")
+
+            messages.append(
+                types.Content(
+                    role="user",
+                    parts=[
+                        types.Part.from_function_response(
+                            name=fc_result.parts[0].function_response.name,
+                            response=fc_result.parts[0].function_response.response,
+                        )
+                    ],
+                )
+            )
+    elif hasattr(response, "text") and response.text:
+        print(response.text)
+        break
 else:
-    print(response.text)
+    print("Max iterations reached without a final response.")
