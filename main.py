@@ -44,11 +44,9 @@ if not args:
     sys.exit(1)
 
 user_prompt = " ".join(args)
-
 messages = [
     types.Content(role="user", parts=[types.Part(text=user_prompt)]),
 ]
-
 MAX_ITERATION = 20
 
 for iteration in range(MAX_ITERATION):
@@ -62,9 +60,11 @@ for iteration in range(MAX_ITERATION):
         )
     except Exception as e:
         print(f"Error during generate_content (iteration {iteration+1}): {e}")
+        continue
 
     for candidate in response.candidates:
-        messages.append(candidate.content)
+        if candidate.content:
+            messages.append(candidate.content)
 
     if response.function_calls:
         for fc in response.function_calls:
@@ -94,6 +94,6 @@ for iteration in range(MAX_ITERATION):
             )
     elif hasattr(response, "text") and response.text:
         print(response.text)
-        break
+        sys.exit(0)
 else:
     print("Max iterations reached without a final response.")

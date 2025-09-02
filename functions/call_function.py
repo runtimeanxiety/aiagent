@@ -1,8 +1,10 @@
-from .get_files_info import get_files_info, schema_get_files_info
-from .get_file_content import get_file_content, schema_get_file_content
-from .run_python_file import run_python_file, schema_run_python_file
-from .write_file import write_file, schema_write_file
+from .get_files_info import get_files_info
+from .get_file_content import get_file_content
+from .run_python_file import run_python_file
+from .write_file import write_file
 from google.genai import types
+
+WORKING_DIRECTORY = "./calculator"
 
 
 def call_function(function_call_part, verbose=False):
@@ -14,11 +16,9 @@ def call_function(function_call_part, verbose=False):
     }
 
     function_name = function_call_part.name
-
-    if verbose:
-        print(f"Calling function: {function_call_part.name}({function_call_part.args})")
-    else:
-        print(f" - Calling function: {function_call_part.name}")
+    print(
+        f"{'Calling' if verbose else ' - Calling'} function: {function_name}({function_call_part.args})"
+    )
 
     if function_call_part.name not in function_map:
         return types.Content(
@@ -32,8 +32,12 @@ def call_function(function_call_part, verbose=False):
         )
 
     function_args = dict(function_call_part.args)
-    function_args["working_directory"] = "./calculator"
-    function_result = function_map[function_name](**function_args)
+    function_args["working_directory"] = WORKING_DIRECTORY
+    try:
+        function_result = function_map[function_name](**function_args)
+        response = {"result": function_result}
+    except Exception as e:
+        response = {"error": str(e)}
 
     return types.Content(
         role="tool",
